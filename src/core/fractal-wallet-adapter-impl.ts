@@ -17,6 +17,7 @@ import {
 } from '@solana/wallet-adapter-base';
 import { Message, Transaction, PublicKey } from '@solana/web3.js';
 import base58 from 'bs58';
+import { createNonce } from 'core/nonce';
 
 const UNKNOWN_ERROR_MESSAGE = 'Unknown Error';
 const FRACTAL_DOMAIN_HTTPS = 'https://fractal.is';
@@ -208,13 +209,4 @@ export class FractalWalletAdapterImpl {
       );
     }
   }
-}
-
-function createNonce(): string {
-  return `${randomString()}${randomString()}${randomString()}`;
-}
-
-/** @url https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript */
-function randomString(): string {
-  return (Math.random() + 1).toString(36).substring(7);
 }
