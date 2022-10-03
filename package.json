@@ -61,5 +61,10 @@
     "ts-patch": "^2.0.1",
     "typescript": "^4.8.3",
     "typescript-transform-paths": "^3.3.1"
+  },
+  "dependencies": {
+    "@fractalwagmi/popup-connection": "^1.0.11",
+    "@solana/wallet-adapter-base": "^0.9.17",
+    "bs58": "^5.0.0"
   }
 }

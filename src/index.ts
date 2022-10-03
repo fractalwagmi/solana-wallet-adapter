@@ -1,3 +1,1 @@
-console.log('hello');
-
-export {};
+export * from 'core/adapter-impl';
