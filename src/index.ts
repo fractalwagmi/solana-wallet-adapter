@@ -1,1 +1,1 @@
-export * from 'core/adapter-impl';
+export * from 'core/fractal-wallet-adapter-impl';
