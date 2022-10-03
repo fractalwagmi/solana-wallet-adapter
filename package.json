@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "clean": "rm -rf dist && rm -rf *.tsbuildinfo",
     "prepare": "husky install && ts-patch install",
     "prebuild": "npm run clean",
