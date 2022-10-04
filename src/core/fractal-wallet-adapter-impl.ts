@@ -12,7 +12,6 @@ import {
   WalletNotConnectedError,
   WalletSignTransactionError,
   WalletPublicKeyError,
-  WalletNotReadyError,
   WalletConnectionError,
 } from '@solana/wallet-adapter-base';
 import { Message, Transaction, PublicKey } from '@solana/web3.js';
@@ -38,6 +37,10 @@ export class FractalWalletAdapterImpl {
     return this.publicKey;
   }
 
+  getConnecting(): boolean {
+    return this.connecting;
+  }
+
   async connect(): Promise<void> {
     let resolve: () => void | undefined;
     let reject: (err: unknown) => void | undefined;
@@ -55,7 +58,7 @@ export class FractalWalletAdapterImpl {
           new WalletConnectionError(
             'Malformed payload when setting up connection. ' +
               'Expected { solanaPublicKey: string } but ' +
-              `received ${payload}`,
+              `received ${JSON.stringify(payload)}`,
           ),
         );
         return;
@@ -141,7 +144,7 @@ export class FractalWalletAdapterImpl {
         const error = new WalletSignTransactionError(
           'Malformed payload when signing transactions. ' +
             'Expected { signedB58Transactions: string[] } ' +
-            `but received ${payload}`,
+            `but received ${JSON.stringify(payload)}`,
         );
         reject(error);
         return;
@@ -201,11 +204,6 @@ export class FractalWalletAdapterImpl {
     if (this.publicKey === null) {
       throw new WalletNotConnectedError(
         '`publicKey` is null. Did you forget to call `.connect()`?',
-      );
-    }
-    if (this.connecting) {
-      throw new WalletNotReadyError(
-        '`signTransaction` cannot be called while connecting',
       );
     }
   }
