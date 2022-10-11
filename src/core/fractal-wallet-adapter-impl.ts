@@ -37,15 +37,10 @@ export class FractalWalletAdapterImpl {
     return this.publicKey;
   }
 
-  getConnecting(): boolean {
-    return this.connecting;
-  }
-
   async connect(): Promise<void> {
     let resolve: () => void | undefined;
     let reject: (err: unknown) => void | undefined;
 
-    this.connecting = true;
     const nonce = createNonce();
     this.popupManager.open({
       nonce,
@@ -61,6 +56,7 @@ export class FractalWalletAdapterImpl {
               `received ${JSON.stringify(payload)}`,
           ),
         );
+        this.popupManager.close();
         return;
       }
       try {
@@ -73,7 +69,17 @@ export class FractalWalletAdapterImpl {
         );
         reject(publicKeyError);
       }
-      this.connecting = false;
+      this.popupManager.close();
+    };
+
+    const handleExplicitDenialByUser = () => {
+      reject(new WalletConnectionError('The user denied the connection.'));
+      this.popupManager.close();
+    };
+
+    const handleClosedByUser = () => {
+      reject(new WalletConnectionError('The user denied the connection.'));
+      this.popupManager.close();
     };
 
     this.popupManager.onConnectionUpdated(connection => {
@@ -84,6 +90,11 @@ export class FractalWalletAdapterImpl {
         PopupEvent.SOLANA_WALLET_ADAPTER_APPROVED,
         handleSolanaWalletAdapterApproved,
       );
+      connection.on(
+        PopupEvent.SOLANA_WALLET_ADAPTER_DENIED,
+        handleExplicitDenialByUser,
+      );
+      connection.on(PopupEvent.POPUP_CLOSED, handleClosedByUser);
     });
 
     return new Promise((promiseResolver, promiseRejector) => {
@@ -160,6 +171,14 @@ export class FractalWalletAdapterImpl {
       resolve(signedTransactions);
     };
 
+    const handleClosedByUser = () => {
+      reject(
+        new WalletSignTransactionError(
+          'The user did not approve the transaction',
+        ),
+      );
+    };
+
     const nonce = createNonce();
     this.popupManager.open({
       heightPx: Math.max(
@@ -182,6 +201,8 @@ export class FractalWalletAdapterImpl {
         PopupEvent.TRANSACTION_SIGNATURE_NEEDED_RESPONSE,
         handleTransactionSignatureNeededResponse,
       );
+
+      connection.on(PopupEvent.POPUP_CLOSED, handleClosedByUser);
 
       const payload: TransactionSignatureNeededPayload = {
         unsignedB58Transactions: transactions.map(t =>
