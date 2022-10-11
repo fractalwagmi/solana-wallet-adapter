@@ -132,6 +132,7 @@ describe('FractalWalletAdapterImpl', () => {
         // assertion runs.
       }
 
+      expect(mockConnectionManager.close).toHaveBeenCalled();
       expect(connectP).rejects.toEqual(expect.any(WalletConnectionError));
     });
 
@@ -148,6 +149,7 @@ describe('FractalWalletAdapterImpl', () => {
         // assertion runs.
       }
 
+      expect(mockConnectionManager.close).toHaveBeenCalled();
       expect(connectP).rejects.toEqual(expect.any(WalletConnectionError));
     });
 
@@ -161,6 +163,7 @@ describe('FractalWalletAdapterImpl', () => {
         someUnknownPayload: 'foobar',
       });
 
+      expect(mockConnectionManager.close).toHaveBeenCalled();
       expect(connectP).rejects.toEqual(expect.any(WalletConnectionError));
     });
 
@@ -177,6 +180,7 @@ describe('FractalWalletAdapterImpl', () => {
         solanaPublicKey: TEST_PUBLIC_KEY_INPUT,
       });
 
+      expect(mockConnectionManager.close).toHaveBeenCalled();
       expect(connectP).rejects.toEqual(expect.any(WalletPublicKeyError));
     });
 
@@ -193,6 +197,7 @@ describe('FractalWalletAdapterImpl', () => {
 
       expect(web3.PublicKey).toHaveBeenLastCalledWith(TEST_PUBLIC_KEY_INPUT);
       expect(wallet.getPublicKey()).toBe(TEST_PUBLIC_KEY);
+      expect(mockConnectionManager.close).toHaveBeenCalled();
     });
   });
 
@@ -271,6 +276,7 @@ describe('FractalWalletAdapterImpl', () => {
       expect(signTransactionP).rejects.toEqual(
         expect.any(WalletSignTransactionError),
       );
+      expect(mockConnectionManager.close).toHaveBeenCalled();
     });
 
     it('rejects when the user closes the popup', async () => {
@@ -292,6 +298,7 @@ describe('FractalWalletAdapterImpl', () => {
       expect(signTransactionP).rejects.toEqual(
         expect.any(WalletSignTransactionError),
       );
+      expect(mockConnectionManager.close).toHaveBeenCalled();
     });
 
     it('resolves with the signed transactions sent back from the popup', async () => {
@@ -316,6 +323,7 @@ describe('FractalWalletAdapterImpl', () => {
       const result = await signTransactionP;
 
       expect(result).toBe(TEST_RESOLVED_TRANSACTION);
+      expect(mockConnectionManager.close).toHaveBeenCalled();
     });
   });
 });
