@@ -39,6 +39,8 @@ let mockConnectionManager: jest.Mocked<ConnectionManager>;
 let mockConnection: jest.Mocked<Connection>;
 let transactionPopulateSpy: jest.SpyInstance;
 
+type EventCallback = (payload?: unknown) => void;
+
 beforeEach(() => {
   mockAssertPayloadIsSolanaWalletAdapterApproved =
     assertPayloadIsSolanaWalletAdapterApproved as unknown as jest.Mock;
@@ -71,9 +73,9 @@ describe('FractalWalletAdapterImpl', () => {
   let onConnectionUpdatedCallback: (
     connection: Connection | null,
   ) => void = () => null;
-  let onSolanaWalletAdapterApprovedCallback: (
-    payload: unknown,
-  ) => void = () => {};
+  let onSolanaWalletAdapterApprovedCallback: EventCallback = () => {};
+  let onSolanaWalletAdapterDeniedCallback: EventCallback = () => {};
+  let onPopupClosed: EventCallback = () => {};
 
   beforeEach(() => {
     mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
@@ -81,27 +83,20 @@ describe('FractalWalletAdapterImpl', () => {
       return mockConnectionManager;
     });
     mockConnection.on.mockImplementation((event: PopupEvent, callback) => {
-      onSolanaWalletAdapterApprovedCallback = callback;
+      if (event === PopupEvent.SOLANA_WALLET_ADAPTER_APPROVED) {
+        onSolanaWalletAdapterApprovedCallback = callback;
+      }
+      if (event === PopupEvent.SOLANA_WALLET_ADAPTER_DENIED) {
+        console.log('assigning onSolanaWalletAdapterDeniedCallback');
+        onSolanaWalletAdapterDeniedCallback = callback;
+      }
+      if (event === PopupEvent.POPUP_CLOSED) {
+        onPopupClosed = callback;
+      }
     });
   });
 
   describe('connect', () => {
-    it('supports retrieving the connecting state', async () => {
-      const wallet = new FractalWalletAdapterImpl();
-      expect(wallet.getConnecting()).toBe(false);
-
-      const connectP = wallet.connect();
-      expect(wallet.getConnecting()).toBe(true);
-
-      onConnectionUpdatedCallback(mockConnection);
-      onSolanaWalletAdapterApprovedCallback({
-        solanaPublicKey: TEST_PUBLIC_KEY_INPUT,
-      });
-      await connectP;
-
-      expect(wallet.getConnecting()).toBe(false);
-    });
-
     it('should open the approval page when connecting', () => {
       const wallet = new FractalWalletAdapterImpl();
       wallet.connect();
@@ -118,13 +113,45 @@ describe('FractalWalletAdapterImpl', () => {
 
       onConnectionUpdatedCallback(mockConnection);
 
-      expect(mockConnection.on).toHaveBeenLastCalledWith(
+      expect(mockConnection.on).toHaveBeenCalledWith(
         PopupEvent.SOLANA_WALLET_ADAPTER_APPROVED,
         expect.any(Function),
       );
     });
 
-    fit('handles invalid payloads', () => {
+    it('handles user denial of popup', async () => {
+      const wallet = new FractalWalletAdapterImpl();
+      const connectP = wallet.connect();
+      onConnectionUpdatedCallback(mockConnection);
+
+      onSolanaWalletAdapterDeniedCallback();
+      try {
+        await connectP;
+      } catch {
+        // We need to await `connectP` in order to ensure that the next
+        // assertion runs.
+      }
+
+      expect(connectP).rejects.toEqual(expect.any(WalletConnectionError));
+    });
+
+    it('handles explicit popup closing by user', async () => {
+      const wallet = new FractalWalletAdapterImpl();
+      const connectP = wallet.connect();
+      onConnectionUpdatedCallback(mockConnection);
+
+      onPopupClosed();
+      try {
+        await connectP;
+      } catch {
+        // We need to await `connectP` in order to ensure that the next
+        // assertion runs.
+      }
+
+      expect(connectP).rejects.toEqual(expect.any(WalletConnectionError));
+    });
+
+    it('handles invalid payloads', () => {
       mockAssertPayloadIsSolanaWalletAdapterApproved.mockRestore();
       const wallet = new FractalWalletAdapterImpl();
       const connectP = wallet.connect();
@@ -240,6 +267,27 @@ describe('FractalWalletAdapterImpl', () => {
       onTransactionSignatureNeededResponseCallback({
         someUnsupportedPayload: 'foobar',
       });
+
+      expect(signTransactionP).rejects.toEqual(
+        expect.any(WalletSignTransactionError),
+      );
+    });
+
+    it('rejects when the user closes the popup', async () => {
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+      const signTransactionP = wallet.signTransaction(TEST_TRANSACTION);
+      onConnectionUpdatedCallback(mockConnection);
+
+      onPopupClosed();
+
+      try {
+        await signTransactionP;
+      } catch {
+        // just need to await the promise above.
+      }
 
       expect(signTransactionP).rejects.toEqual(
         expect.any(WalletSignTransactionError),
