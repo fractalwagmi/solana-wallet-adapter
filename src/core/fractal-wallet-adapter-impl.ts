@@ -158,6 +158,7 @@ export class FractalWalletAdapterImpl {
             `but received ${JSON.stringify(payload)}`,
         );
         reject(error);
+        this.popupManager.close();
         return;
       }
 
@@ -169,6 +170,7 @@ export class FractalWalletAdapterImpl {
       ) as T[];
 
       resolve(signedTransactions);
+      this.popupManager.close();
     };
 
     const handleClosedByUser = () => {
@@ -177,6 +179,7 @@ export class FractalWalletAdapterImpl {
           'The user did not approve the transaction',
         ),
       );
+      this.popupManager.close();
     };
 
     const nonce = createNonce();
