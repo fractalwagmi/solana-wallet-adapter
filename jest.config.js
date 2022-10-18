@@ -9,6 +9,7 @@ const customJestConfig = {
   preset: 'ts-jest',
   rootDir: 'src',
   testEnvironment: 'jsdom',
+  setupFiles: ['jest-localstorage-mock'],
 };
 
 export default customJestConfig;
