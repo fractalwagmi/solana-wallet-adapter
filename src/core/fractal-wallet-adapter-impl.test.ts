@@ -23,6 +23,7 @@ jest.mock('core/nonce');
 /* eslint-disable @typescript-eslint/no-empty-function */
 
 const TEST_TRANSACTION = new web3.Transaction();
+const TEST_SERIALIZED_MESSAGE_RETURN = 'foobar';
 const TEST_RESOLVED_TRANSACTION = new web3.Transaction();
 const TEST_PUBLIC_KEY_INPUT = 'test-public-key';
 const TEST_PUBLIC_KEY = new web3.PublicKey([]);
@@ -30,6 +31,7 @@ const TEST_NONCE = 'test-nonce';
 const FRACTAL_DOMAIN_HTTPS = 'https://fractal.is';
 const APPROVE_PAGE_URL = `${FRACTAL_DOMAIN_HTTPS}/wallet-adapter/approve`;
 const SIGN_PAGE_URL = `${FRACTAL_DOMAIN_HTTPS}/wallet-adapter/sign`;
+const LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY = 'RdxqNYxF';
 
 let mockAssertPayloadIsSolanaWalletAdapterApproved: jest.Mock;
 let mockAssertPayloadIsTransactionSignatureNeededResponsePayload: jest.Mock;
@@ -42,6 +44,10 @@ let transactionPopulateSpy: jest.SpyInstance;
 type EventCallback = (payload?: unknown) => void;
 
 beforeEach(() => {
+  jest
+    .spyOn(TEST_TRANSACTION, 'serializeMessage')
+    .mockReturnValue(Buffer.from(TEST_SERIALIZED_MESSAGE_RETURN));
+
   mockAssertPayloadIsSolanaWalletAdapterApproved =
     assertPayloadIsSolanaWalletAdapterApproved as unknown as jest.Mock;
   mockAssertPayloadIsSolanaWalletAdapterApproved.mockReturnValue(true);
@@ -69,6 +75,11 @@ beforeEach(() => {
   jest.spyOn(web3, 'PublicKey').mockImplementation(() => TEST_PUBLIC_KEY);
 });
 
+afterEach(() => {
+  localStorage.clear();
+  jest.clearAllMocks();
+});
+
 describe('FractalWalletAdapterImpl', () => {
   let onConnectionUpdatedCallback: (
     connection: Connection | null,
@@ -87,7 +98,6 @@ describe('FractalWalletAdapterImpl', () => {
         onSolanaWalletAdapterApprovedCallback = callback;
       }
       if (event === PopupEvent.SOLANA_WALLET_ADAPTER_DENIED) {
-        console.log('assigning onSolanaWalletAdapterDeniedCallback');
         onSolanaWalletAdapterDeniedCallback = callback;
       }
       if (event === PopupEvent.POPUP_CLOSED) {
@@ -198,6 +208,38 @@ describe('FractalWalletAdapterImpl', () => {
       expect(web3.PublicKey).toHaveBeenLastCalledWith(TEST_PUBLIC_KEY_INPUT);
       expect(wallet.getPublicKey()).toBe(TEST_PUBLIC_KEY);
       expect(mockConnectionManager.close).toHaveBeenCalled();
+    });
+
+    it('stores the public key in localStorage', async () => {
+      const wallet = new FractalWalletAdapterImpl();
+      const connectP = wallet.connect();
+      onConnectionUpdatedCallback(mockConnection);
+      mockAssertPayloadIsSolanaWalletAdapterApproved.mockReturnValue(true);
+
+      onSolanaWalletAdapterApprovedCallback({
+        solanaPublicKey: TEST_PUBLIC_KEY_INPUT,
+      });
+      await connectP;
+
+      expect(localStorage.setItem).toHaveBeenLastCalledWith(
+        LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY,
+        TEST_PUBLIC_KEY_INPUT,
+      );
+    });
+
+    it('auto-initializes connection from existing public key in localStorage', async () => {
+      localStorage.setItem(
+        LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY,
+        'D3FXGeV4Vas5FFNaQyoTTWog2oUQai1CH6QTvqoytpvf',
+      );
+      (web3.PublicKey as unknown as jest.SpyInstance).mockRestore();
+
+      const wallet = new FractalWalletAdapterImpl();
+      await wallet.connect();
+
+      expect(wallet.getPublicKey()?.toString()).toEqual(
+        'D3FXGeV4Vas5FFNaQyoTTWog2oUQai1CH6QTvqoytpvf',
+      );
     });
   });
 

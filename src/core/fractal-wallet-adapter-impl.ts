@@ -24,6 +24,7 @@ const APPROVE_PAGE_URL = `${FRACTAL_DOMAIN_HTTPS}/wallet-adapter/approve`;
 const SIGN_PAGE_URL = `${FRACTAL_DOMAIN_HTTPS}/wallet-adapter/sign`;
 const MIN_POPUP_HEIGHT_PX = DEFAULT_POPUP_HEIGHT_PX;
 const MAX_POPUP_WIDTH_PX = 850;
+const LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY = 'RdxqNYxF';
 
 export class FractalWalletAdapterImpl {
   private readonly popupManager = new ConnectionManager(
@@ -40,6 +41,14 @@ export class FractalWalletAdapterImpl {
   async connect(): Promise<void> {
     let resolve: () => void | undefined;
     let reject: (err: unknown) => void | undefined;
+
+    const publicKeyInLocalStorage = window.localStorage.getItem(
+      LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY,
+    );
+    if (publicKeyInLocalStorage) {
+      this.publicKey = new PublicKey(publicKeyInLocalStorage);
+      return Promise.resolve();
+    }
 
     const nonce = createNonce();
     this.popupManager.open({
@@ -61,6 +70,10 @@ export class FractalWalletAdapterImpl {
       }
       try {
         this.publicKey = new PublicKey(payload.solanaPublicKey);
+        window.localStorage.setItem(
+          LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY,
+          payload.solanaPublicKey,
+        );
         resolve();
       } catch (error: unknown) {
         const publicKeyError = new WalletPublicKeyError(
