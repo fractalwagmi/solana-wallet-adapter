@@ -195,6 +195,18 @@ export class FractalWalletAdapterImpl {
       this.popupManager.close();
     };
 
+    const handleAuthLoaded = () => {
+      const payload: TransactionSignatureNeededPayload = {
+        unsignedB58Transactions: transactions.map(t =>
+          base58.encode(t.serializeMessage()),
+        ),
+      };
+      this.popupManager.getConnection()?.send({
+        event: PopupEvent.TRANSACTION_SIGNATURE_NEEDED,
+        payload,
+      });
+    };
+
     const nonce = createNonce();
     this.popupManager.open({
       heightPx: Math.max(
@@ -217,18 +229,8 @@ export class FractalWalletAdapterImpl {
         PopupEvent.TRANSACTION_SIGNATURE_NEEDED_RESPONSE,
         handleTransactionSignatureNeededResponse,
       );
-
       connection.on(PopupEvent.POPUP_CLOSED, handleClosedByUser);
-
-      const payload: TransactionSignatureNeededPayload = {
-        unsignedB58Transactions: transactions.map(t =>
-          base58.encode(t.serializeMessage()),
-        ),
-      };
-      connection.send({
-        event: PopupEvent.TRANSACTION_SIGNATURE_NEEDED,
-        payload,
-      });
+      connection.on(PopupEvent.AUTH_LOADED, handleAuthLoaded);
     });
 
     return new Promise<T[]>((promiseResolver, promiseRejector) => {

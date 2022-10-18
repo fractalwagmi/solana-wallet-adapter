@@ -248,6 +248,7 @@ describe('FractalWalletAdapterImpl', () => {
     let onTransactionSignatureNeededResponseCallback: (
       payload: unknown,
     ) => void = () => {};
+    let onAuthLoadedCallback: EventCallback = () => {};
 
     beforeEach(async () => {
       wallet = new FractalWalletAdapterImpl();
@@ -288,7 +289,20 @@ describe('FractalWalletAdapterImpl', () => {
       });
 
       wallet.signTransaction(TEST_TRANSACTION);
+      mockConnection.on.mockImplementation((event, callback) => {
+        if (event === PopupEvent.AUTH_LOADED) {
+          onAuthLoadedCallback = callback;
+        }
+      });
       onConnectionUpdatedCallback(mockConnection);
+
+      expect(mockConnection.send).not.toHaveBeenCalledWith({
+        event: PopupEvent.TRANSACTION_SIGNATURE_NEEDED,
+        payload: expect.objectContaining({
+          unsignedB58Transactions: [expect.any(String)],
+        }),
+      });
+      onAuthLoadedCallback();
 
       expect(mockConnection.send).toHaveBeenLastCalledWith({
         event: PopupEvent.TRANSACTION_SIGNATURE_NEEDED,
