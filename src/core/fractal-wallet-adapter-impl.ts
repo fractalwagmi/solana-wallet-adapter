@@ -186,7 +186,7 @@ export class FractalWalletAdapterImpl {
       this.popupManager.close();
     };
 
-    const handleClosedByUser = () => {
+    const handleClosedOrDeniedByUser = () => {
       reject(
         new WalletSignTransactionError(
           'The user did not approve the transaction',
@@ -229,7 +229,8 @@ export class FractalWalletAdapterImpl {
         PopupEvent.TRANSACTION_SIGNATURE_NEEDED_RESPONSE,
         handleTransactionSignatureNeededResponse,
       );
-      connection.on(PopupEvent.POPUP_CLOSED, handleClosedByUser);
+      connection.on(PopupEvent.TRANSACTION_DENIED, handleClosedOrDeniedByUser);
+      connection.on(PopupEvent.POPUP_CLOSED, handleClosedOrDeniedByUser);
       connection.on(PopupEvent.AUTH_LOADED, handleAuthLoaded);
     });
 

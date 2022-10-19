@@ -87,6 +87,7 @@ describe('FractalWalletAdapterImpl', () => {
   let onSolanaWalletAdapterApprovedCallback: EventCallback = () => {};
   let onSolanaWalletAdapterDeniedCallback: EventCallback = () => {};
   let onPopupClosed: EventCallback = () => {};
+  let onSignTransactionDeniedCallback: EventCallback = () => {};
 
   beforeEach(() => {
     mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
@@ -102,6 +103,9 @@ describe('FractalWalletAdapterImpl', () => {
       }
       if (event === PopupEvent.POPUP_CLOSED) {
         onPopupClosed = callback;
+      }
+      if (event === PopupEvent.TRANSACTION_DENIED) {
+        onSignTransactionDeniedCallback = callback;
       }
     });
   });
@@ -359,6 +363,28 @@ describe('FractalWalletAdapterImpl', () => {
       onConnectionUpdatedCallback(mockConnection);
 
       onPopupClosed();
+
+      try {
+        await signTransactionP;
+      } catch {
+        // just need to await the promise above.
+      }
+
+      expect(signTransactionP).rejects.toEqual(
+        expect.any(WalletSignTransactionError),
+      );
+      expect(mockConnectionManager.close).toHaveBeenCalled();
+    });
+
+    it('rejects when the user denies the transaction', async () => {
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+      const signTransactionP = wallet.signTransaction(TEST_TRANSACTION);
+      onConnectionUpdatedCallback(mockConnection);
+
+      onSignTransactionDeniedCallback();
 
       try {
         await signTransactionP;
