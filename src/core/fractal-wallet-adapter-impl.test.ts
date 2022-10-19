@@ -39,7 +39,7 @@ let mockCreateNonce: jest.Mock;
 let MockConnectionManagerClass: jest.Mock;
 let mockConnectionManager: jest.Mocked<ConnectionManager>;
 let mockConnection: jest.Mocked<Connection>;
-let transactionPopulateSpy: jest.SpyInstance;
+let transactionFromSpy: jest.SpyInstance;
 
 type EventCallback = (payload?: unknown) => void;
 
@@ -58,7 +58,7 @@ beforeEach(() => {
     true,
   );
 
-  transactionPopulateSpy = jest.spyOn(web3.Transaction, 'populate');
+  transactionFromSpy = jest.spyOn(web3.Transaction, 'from');
 
   mockConnection = createMockInstance(Connection);
 
@@ -378,7 +378,7 @@ describe('FractalWalletAdapterImpl', () => {
         return mockConnectionManager;
       });
       const signTransactionP = wallet.signTransaction(TEST_TRANSACTION);
-      transactionPopulateSpy.mockReturnValue(TEST_RESOLVED_TRANSACTION);
+      transactionFromSpy.mockReturnValue(TEST_RESOLVED_TRANSACTION);
       mockConnection.on.mockImplementation((event, callback) => {
         if (event === PopupEvent.TRANSACTION_SIGNATURE_NEEDED_RESPONSE) {
           onTransactionSignatureNeededResponseCallback = callback;

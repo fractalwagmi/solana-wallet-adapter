@@ -14,7 +14,7 @@ import {
   WalletPublicKeyError,
   WalletConnectionError,
 } from '@solana/wallet-adapter-base';
-import { Message, Transaction, PublicKey } from '@solana/web3.js';
+import { Transaction, PublicKey } from '@solana/web3.js';
 import base58 from 'bs58';
 import { createNonce } from 'core/nonce';
 
@@ -178,8 +178,7 @@ export class FractalWalletAdapterImpl {
 
       const signedTransactions = payload.signedB58Transactions.map(
         signedB58Transaction => {
-          const message = Message.from(base58.decode(signedB58Transaction));
-          return Transaction.populate(message);
+          return Transaction.from(base58.decode(signedB58Transaction));
         },
       ) as T[];
 
