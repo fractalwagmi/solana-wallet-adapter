@@ -1,6 +1,6 @@
 {
   "name": "@fractalwagmi/solana-wallet-adapter",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Solana wallet adapter implementation for Fractal Wallet",
   "main": "dist/cjs/index.js",
   "types": "dist/esm/index.d.ts",
@@ -65,7 +65,7 @@
     "typescript-transform-paths": "^3.3.1"
   },
   "dependencies": {
-    "@fractalwagmi/popup-connection": "^1.0.12",
+    "@fractalwagmi/popup-connection": "^1.0.13",
     "@solana/wallet-adapter-base": "^0.9.17",
     "bs58": "^5.0.0"
   }

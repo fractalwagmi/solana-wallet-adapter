@@ -39,7 +39,7 @@ let mockCreateNonce: jest.Mock;
 let MockConnectionManagerClass: jest.Mock;
 let mockConnectionManager: jest.Mocked<ConnectionManager>;
 let mockConnection: jest.Mocked<Connection>;
-let transactionPopulateSpy: jest.SpyInstance;
+let transactionFromSpy: jest.SpyInstance;
 
 type EventCallback = (payload?: unknown) => void;
 
@@ -58,7 +58,7 @@ beforeEach(() => {
     true,
   );
 
-  transactionPopulateSpy = jest.spyOn(web3.Transaction, 'populate');
+  transactionFromSpy = jest.spyOn(web3.Transaction, 'from');
 
   mockConnection = createMockInstance(Connection);
 
@@ -87,6 +87,7 @@ describe('FractalWalletAdapterImpl', () => {
   let onSolanaWalletAdapterApprovedCallback: EventCallback = () => {};
   let onSolanaWalletAdapterDeniedCallback: EventCallback = () => {};
   let onPopupClosed: EventCallback = () => {};
+  let onSignTransactionDeniedCallback: EventCallback = () => {};
 
   beforeEach(() => {
     mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
@@ -102,6 +103,9 @@ describe('FractalWalletAdapterImpl', () => {
       }
       if (event === PopupEvent.POPUP_CLOSED) {
         onPopupClosed = callback;
+      }
+      if (event === PopupEvent.TRANSACTION_DENIED) {
+        onSignTransactionDeniedCallback = callback;
       }
     });
   });
@@ -372,13 +376,35 @@ describe('FractalWalletAdapterImpl', () => {
       expect(mockConnectionManager.close).toHaveBeenCalled();
     });
 
+    it('rejects when the user denies the transaction', async () => {
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+      const signTransactionP = wallet.signTransaction(TEST_TRANSACTION);
+      onConnectionUpdatedCallback(mockConnection);
+
+      onSignTransactionDeniedCallback();
+
+      try {
+        await signTransactionP;
+      } catch {
+        // just need to await the promise above.
+      }
+
+      expect(signTransactionP).rejects.toEqual(
+        expect.any(WalletSignTransactionError),
+      );
+      expect(mockConnectionManager.close).toHaveBeenCalled();
+    });
+
     it('resolves with the signed transactions sent back from the popup', async () => {
       mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
         onConnectionUpdatedCallback = callback;
         return mockConnectionManager;
       });
       const signTransactionP = wallet.signTransaction(TEST_TRANSACTION);
-      transactionPopulateSpy.mockReturnValue(TEST_RESOLVED_TRANSACTION);
+      transactionFromSpy.mockReturnValue(TEST_RESOLVED_TRANSACTION);
       mockConnection.on.mockImplementation((event, callback) => {
         if (event === PopupEvent.TRANSACTION_SIGNATURE_NEEDED_RESPONSE) {
           onTransactionSignatureNeededResponseCallback = callback;
