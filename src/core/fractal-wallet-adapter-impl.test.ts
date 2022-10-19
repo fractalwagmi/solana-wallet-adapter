@@ -227,6 +227,21 @@ describe('FractalWalletAdapterImpl', () => {
       );
     });
 
+    it('removes the public key from localStorage when disconnecting', async () => {
+      const wallet = new FractalWalletAdapterImpl();
+      const connectP = wallet.connect();
+      onConnectionUpdatedCallback(mockConnection);
+      mockAssertPayloadIsSolanaWalletAdapterApproved.mockReturnValue(true);
+
+      onSolanaWalletAdapterApprovedCallback({
+        solanaPublicKey: TEST_PUBLIC_KEY_INPUT,
+      });
+      await connectP;
+
+      await wallet.disconnect();
+      expect(localStorage.getItem(LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY)).toBeNull();
+    });
+
     it('auto-initializes connection from existing public key in localStorage', async () => {
       localStorage.setItem(
         LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY,

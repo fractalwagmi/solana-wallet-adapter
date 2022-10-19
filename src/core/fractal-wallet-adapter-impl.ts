@@ -119,6 +119,7 @@ export class FractalWalletAdapterImpl {
   async disconnect(): Promise<void> {
     this.popupManager.tearDown();
     this.publicKey = null;
+    window.localStorage.removeItem(LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY);
   }
 
   async signTransaction<T extends Transaction>(transaction: T): Promise<T> {
