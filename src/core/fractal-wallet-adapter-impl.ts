@@ -1,5 +1,7 @@
-import type { TransactionSignatureNeededPayload } from '@fractalwagmi/popup-connection';
 import {
+  assertPayloadIsMessageSignatureNeededResponsePayload,
+  MessageSignatureNeededPayload,
+  TransactionSignatureNeededPayload,
   ConnectionManager,
   Platform,
   PopupEvent,
@@ -13,6 +15,7 @@ import {
   WalletSignTransactionError,
   WalletPublicKeyError,
   WalletConnectionError,
+  WalletSignMessageError,
 } from '@solana/wallet-adapter-base';
 import { Transaction, PublicKey } from '@solana/web3.js';
 import base58 from 'bs58';
@@ -156,6 +159,80 @@ export class FractalWalletAdapterImpl {
       }
       throw errorToThrow;
     }
+  }
+
+  async signMessage(encodedMessage: Uint8Array): Promise<Uint8Array> {
+    const decodedMessage = new TextDecoder().decode(encodedMessage);
+
+    let resolve: (encodedSignature: Uint8Array) => void;
+    let reject: (err: WalletError) => void;
+
+    const handleMessageSignatureNeededResponse = (payload: unknown) => {
+      if (!assertPayloadIsMessageSignatureNeededResponsePayload(payload)) {
+        const error = new WalletSignMessageError(
+          'Malformed payload when signing message. ' +
+            'Expected { decodedSignature: string } ' +
+            `but received ${JSON.stringify(payload)}`,
+        );
+        reject(error);
+        this.popupManager.close();
+        return;
+      }
+
+      const encodedSignature = new TextEncoder().encode(
+        payload.decodedSignature,
+      );
+      resolve(encodedSignature);
+    };
+
+    const handleClosedOrDeniedByUser = () => {
+      reject(
+        new WalletSignMessageError('The user did not approve the message'),
+      );
+      this.popupManager.close();
+    };
+
+    const handleAuthLoaded = () => {
+      const payload: MessageSignatureNeededPayload = {
+        decodedMessage,
+      };
+      this.popupManager.getConnection()?.send({
+        event: PopupEvent.MESSAGE_SIGNATURE_NEEDED,
+        payload,
+      });
+    };
+
+    const nonce = createNonce();
+    this.popupManager.open({
+      heightPx: Math.max(
+        MIN_POPUP_HEIGHT_PX,
+        Math.floor(window.innerHeight * 0.8),
+      ),
+      nonce,
+      url: `${SIGN_PAGE_URL}/${nonce}`,
+      widthPx: Math.min(
+        MAX_POPUP_WIDTH_PX,
+        Math.floor(window.innerWidth * 0.8),
+      ),
+    });
+    this.popupManager.onConnectionUpdated(connection => {
+      if (!connection) {
+        return;
+      }
+
+      connection.on(
+        PopupEvent.MESSAGE_SIGNATURE_NEEDED_RESPONSE,
+        handleMessageSignatureNeededResponse,
+      );
+      connection.on(PopupEvent.TRANSACTION_DENIED, handleClosedOrDeniedByUser);
+      connection.on(PopupEvent.POPUP_CLOSED, handleClosedOrDeniedByUser);
+      connection.on(PopupEvent.AUTH_LOADED, handleAuthLoaded);
+    });
+
+    return new Promise<Uint8Array>((promiseResolver, promiseRejector) => {
+      resolve = promiseResolver;
+      reject = promiseRejector;
+    });
   }
 
   private async signTransactions<T extends Transaction>(
