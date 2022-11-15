@@ -1,4 +1,5 @@
 import {
+  assertPayloadIsMessageSignatureNeededResponsePayload,
   assertPayloadIsSolanaWalletAdapterApproved,
   assertPayloadIsTransactionSignatureNeededResponsePayload,
   Connection,
@@ -9,6 +10,7 @@ import {
   WalletConnectionError,
   WalletNotConnectedError,
   WalletPublicKeyError,
+  WalletSignMessageError,
   WalletSignTransactionError,
 } from '@solana/wallet-adapter-base';
 import * as web3 from '@solana/web3.js';
@@ -22,6 +24,8 @@ jest.mock('core/nonce');
 
 /* eslint-disable @typescript-eslint/no-empty-function */
 
+const TEST_MESSAGE_STRING = 'arbitrary-message';
+const TEST_MESSAGE_UINT8ARRAY = new TextEncoder().encode(TEST_MESSAGE_STRING);
 const TEST_TRANSACTION = new web3.Transaction();
 const TEST_SERIALIZED_MESSAGE_RETURN = 'foobar';
 const TEST_RESOLVED_TRANSACTION = new web3.Transaction();
@@ -35,6 +39,7 @@ const LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY = 'RdxqNYxF';
 
 let mockAssertPayloadIsSolanaWalletAdapterApproved: jest.Mock;
 let mockAssertPayloadIsTransactionSignatureNeededResponsePayload: jest.Mock;
+let mockAssertPayloadIsMessageSignatureNeededResponsePayload: jest.Mock;
 let mockCreateNonce: jest.Mock;
 let MockConnectionManagerClass: jest.Mock;
 let mockConnectionManager: jest.Mocked<ConnectionManager>;
@@ -55,6 +60,12 @@ beforeEach(() => {
   mockAssertPayloadIsTransactionSignatureNeededResponsePayload =
     assertPayloadIsTransactionSignatureNeededResponsePayload as unknown as jest.Mock;
   mockAssertPayloadIsTransactionSignatureNeededResponsePayload.mockReturnValue(
+    true,
+  );
+
+  mockAssertPayloadIsMessageSignatureNeededResponsePayload =
+    assertPayloadIsMessageSignatureNeededResponsePayload as unknown as jest.Mock;
+  mockAssertPayloadIsMessageSignatureNeededResponsePayload.mockReturnValue(
     true,
   );
 
@@ -259,6 +270,143 @@ describe('FractalWalletAdapterImpl', () => {
       expect(wallet.getPublicKey()?.toString()).toEqual(
         'D3FXGeV4Vas5FFNaQyoTTWog2oUQai1CH6QTvqoytpvf',
       );
+    });
+  });
+
+  describe('messages', () => {
+    let wallet: FractalWalletAdapterImpl;
+    let onMessageSignatureNeededResponseCallback: (
+      payload: unknown,
+    ) => void = () => {};
+    let onAuthLoadedCallback: EventCallback = () => {};
+
+    beforeEach(async () => {
+      wallet = new FractalWalletAdapterImpl();
+      const connectP = wallet.connect();
+
+      onConnectionUpdatedCallback(mockConnection);
+      onSolanaWalletAdapterApprovedCallback({
+        solanaPublicKey: TEST_PUBLIC_KEY_INPUT,
+      });
+      return connectP;
+    });
+
+    it('sends a MESSAGE_SIGNATURE_NEEDED event when the popup is ready', () => {
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+
+      wallet.signMessage(TEST_MESSAGE_UINT8ARRAY);
+      mockConnection.on.mockImplementation((event, callback) => {
+        if (event === PopupEvent.AUTH_LOADED) {
+          onAuthLoadedCallback = callback;
+        }
+      });
+      onConnectionUpdatedCallback(mockConnection);
+
+      expect(mockConnection.send).not.toHaveBeenCalledWith({
+        event: PopupEvent.MESSAGE_SIGNATURE_NEEDED,
+        payload: expect.objectContaining({
+          decodedMessage: TEST_MESSAGE_STRING,
+        }),
+      });
+      onAuthLoadedCallback();
+
+      expect(mockConnection.send).toHaveBeenLastCalledWith({
+        event: PopupEvent.MESSAGE_SIGNATURE_NEEDED,
+        payload: expect.objectContaining({
+          decodedMessage: TEST_MESSAGE_STRING,
+        }),
+      });
+    });
+
+    it('handles invalid payloads', () => {
+      // Use the real implementation since we are checking the assertion.
+      mockAssertPayloadIsMessageSignatureNeededResponsePayload.mockRestore();
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+
+      mockConnection.on.mockImplementation((event, callback) => {
+        if (event === PopupEvent.MESSAGE_SIGNATURE_NEEDED_RESPONSE) {
+          onMessageSignatureNeededResponseCallback = callback;
+        }
+      });
+
+      const signMessageP = wallet.signMessage(TEST_MESSAGE_UINT8ARRAY);
+      onConnectionUpdatedCallback(mockConnection);
+      onMessageSignatureNeededResponseCallback({
+        someUnsupportedPayload: 'foobar',
+      });
+
+      expect(signMessageP).rejects.toEqual(expect.any(WalletSignMessageError));
+      expect(mockConnectionManager.close).toHaveBeenCalled();
+    });
+
+    it('rejects when the user closes the popup', async () => {
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+      const signMessageP = wallet.signMessage(TEST_MESSAGE_UINT8ARRAY);
+      onConnectionUpdatedCallback(mockConnection);
+
+      onPopupClosed();
+
+      try {
+        await signMessageP;
+      } catch {
+        // just need to await the promise above.
+      }
+
+      expect(signMessageP).rejects.toEqual(expect.any(WalletSignMessageError));
+      expect(mockConnectionManager.close).toHaveBeenCalled();
+    });
+
+    it('rejects when the user denies the transaction', async () => {
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+      const signMessageP = wallet.signMessage(TEST_MESSAGE_UINT8ARRAY);
+      onConnectionUpdatedCallback(mockConnection);
+
+      onSignTransactionDeniedCallback();
+
+      try {
+        await signMessageP;
+      } catch {
+        // just need to await the promise above.
+      }
+
+      expect(signMessageP).rejects.toEqual(expect.any(WalletSignMessageError));
+      expect(mockConnectionManager.close).toHaveBeenCalled();
+    });
+
+    it('resolves with the signed signature sent back from the popup', async () => {
+      mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
+        onConnectionUpdatedCallback = callback;
+        return mockConnectionManager;
+      });
+      const signMessageP = wallet.signMessage(TEST_MESSAGE_UINT8ARRAY);
+      mockConnection.on.mockImplementation((event, callback) => {
+        if (event === PopupEvent.MESSAGE_SIGNATURE_NEEDED_RESPONSE) {
+          onMessageSignatureNeededResponseCallback = callback;
+        }
+      });
+      onConnectionUpdatedCallback(mockConnection);
+
+      onMessageSignatureNeededResponseCallback({
+        decodedSignature: 'SOME_DECODED_SIGNATURE',
+      });
+      const result = await signMessageP;
+
+      expect(result).toEqual(
+        new TextEncoder().encode('SOME_DECODED_SIGNATURE'),
+      );
+      expect(mockConnectionManager.close).toHaveBeenCalled();
     });
   });
 
