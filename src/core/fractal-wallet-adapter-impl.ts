@@ -25,6 +25,7 @@ const UNKNOWN_ERROR_MESSAGE = 'Unknown Error';
 const FRACTAL_DOMAIN_HTTPS = 'https://fractal.is';
 const APPROVE_PAGE_URL = `${FRACTAL_DOMAIN_HTTPS}/wallet-adapter/approve`;
 const SIGN_PAGE_URL = `${FRACTAL_DOMAIN_HTTPS}/wallet-adapter/sign`;
+const SIGN_MESSAGE_PAGE_URL = `${FRACTAL_DOMAIN_HTTPS}/wallet-adapter/sign/message`;
 const MIN_POPUP_HEIGHT_PX = DEFAULT_POPUP_HEIGHT_PX;
 const MAX_POPUP_WIDTH_PX = 850;
 const LOCAL_STORAGE_KEY_FOR_PUBLIC_KEY = 'RdxqNYxF';
@@ -209,7 +210,7 @@ export class FractalWalletAdapterImpl {
         Math.floor(window.innerHeight * 0.8),
       ),
       nonce,
-      url: `${SIGN_PAGE_URL}/${nonce}`,
+      url: `${SIGN_MESSAGE_PAGE_URL}/${nonce}`,
       widthPx: Math.min(
         MAX_POPUP_WIDTH_PX,
         Math.floor(window.innerWidth * 0.8),
