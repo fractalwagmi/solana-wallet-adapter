@@ -180,8 +180,8 @@ export class FractalWalletAdapterImpl {
         return;
       }
 
-      const encodedSignature = new TextEncoder().encode(
-        payload.decodedSignature,
+      const encodedSignature = Uint8Array.from(
+        payload.decodedSignature.split(',').map(n => Number(n)),
       );
       resolve(encodedSignature);
     };

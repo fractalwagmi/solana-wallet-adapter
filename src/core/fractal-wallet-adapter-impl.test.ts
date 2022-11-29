@@ -399,13 +399,11 @@ describe('FractalWalletAdapterImpl', () => {
       onConnectionUpdatedCallback(mockConnection);
 
       onMessageSignatureNeededResponseCallback({
-        decodedSignature: 'SOME_DECODED_SIGNATURE',
+        decodedSignature: '97,98,99',
       });
       const result = await signMessageP;
 
-      expect(result).toEqual(
-        new TextEncoder().encode('SOME_DECODED_SIGNATURE'),
-      );
+      expect(result).toEqual(Uint8Array.from([97, 98, 99]));
       expect(mockConnectionManager.close).toHaveBeenCalled();
     });
   });
