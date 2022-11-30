@@ -184,6 +184,7 @@ export class FractalWalletAdapterImpl {
         payload.decodedSignature.split(',').map(n => Number(n)),
       );
       resolve(encodedSignature);
+      this.popupManager.close();
     };
 
     const handleClosedOrDeniedByUser = () => {

@@ -386,6 +386,7 @@ describe('FractalWalletAdapterImpl', () => {
     });
 
     it('resolves with the signed signature sent back from the popup', async () => {
+      mockConnectionManager.close = jest.fn();
       mockConnectionManager.onConnectionUpdated.mockImplementation(callback => {
         onConnectionUpdatedCallback = callback;
         return mockConnectionManager;
@@ -397,6 +398,7 @@ describe('FractalWalletAdapterImpl', () => {
         }
       });
       onConnectionUpdatedCallback(mockConnection);
+      expect(mockConnectionManager.close).not.toHaveBeenCalled();
 
       onMessageSignatureNeededResponseCallback({
         decodedSignature: '97,98,99',
